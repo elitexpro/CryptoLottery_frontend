@@ -11,17 +11,22 @@ import { useGetBnbBalance, useGetTotalTokenSold, useGetNMDTokenprice, useGetBala
   useGetRestAmountOfTicket,
   useGetLotteryStatus,
   useGetLotteryLevel,
-  useGetWiner
+  useGetWiner,
+  useGetTreasury
  } 
-  from './PreSaleTokenModal';
+  from './LotteryModal';
 
-const NmdPresale = () => {
+const Lottery = () => {
 
   const floorTokenAmount = 0.0001
   const floorGasPrice = 0.001
 
   const lotteryContract = useLotteryContract()
-  const { onGetNMDTokenprice } = useGetNMDTokenprice()
+  const { account } = useWeb3React()
+  const balanceOfLottery = useGetBnbBalance(getLotteryAddress())
+  const balanceOfUser = useGetBnbBalance(account);
+
+  const { callWithGasPrice } = useCallWithGasPrice()
   
   const { onGetBalanceOfBUSD } = useGetBalanceOfBUSD()
   const { onGetLotteryCycle } = useGetLotteryCycle()
@@ -30,16 +35,11 @@ const NmdPresale = () => {
   const { onGetLotteryStatus } = useGetLotteryStatus()
   const { onGetLotteryLevel } = useGetLotteryLevel()
   const { onGetWiner } = useGetWiner()  
+  const { onGetTreasury } = useGetTreasury()  
 
-  const { onGetTotalTokenSold } = useGetTotalTokenSold()
-  const { callWithGasPrice } = useCallWithGasPrice()
-  const { account } = useWeb3React()
-  const balanceOfTokenPreSale = useGetBnbBalance(getLotteryAddress())
-  const balanceOfUser = useGetBnbBalance(account);
-
-  const [tokenAmountPerBNB, setTokenAmountPerBNB] = useState(0);
-
-  const [balanceOfBUSD, setBalanceOfBUSD] = useState(0);
+  
+  const [balanceOfBNB, setBalanceOfBNB] = useState("0")
+  const [balanceOfBUSD, setBalanceOfBUSD] = useState(0)
   const [lotteryCycle, setLotteryCycle] = useState(0);
   const [lotteryID, setLotteryID] = useState("");
   const [newTreasury, setNewTreasury] = useState("");
@@ -51,8 +51,14 @@ const NmdPresale = () => {
   const [treasury, setTreasury] = useState("");
   const [lottoInfo, setLottoInfo] = useState();
 
+  
+
+  const { onGetNMDTokenprice } = useGetNMDTokenprice()
+  const { onGetTotalTokenSold } = useGetTotalTokenSold()
+
+  const [tokenAmountPerBNB, setTokenAmountPerBNB] = useState(0);
+
   const [totaltokensold, setTotalTokenSold] = useState(0)
-  const [balanceOfBNB, setRaisedBNB] = useState("");
   const [bnbAmount, setBNBAmount] = useState(0.0);
   const [tokenAmount, setTokenAmount] = useState(0);
   const [BNBStatus, setBNBStatus] = useState("");
@@ -65,7 +71,7 @@ const NmdPresale = () => {
   setTimeout(() => {
     const set = !timeup
     setTimeup(set)
-  }, 5000);
+  }, 5000000);
   
   useEffect(() => { // All get
     async function fetchData() {
@@ -73,10 +79,7 @@ const NmdPresale = () => {
         try{
             setCount(timeup)
             setTokenAmountPerBNB(await onGetNMDTokenprice())
-            setBalanceOfBUSD(await onGetBalanceOfBUSD())
-            setLotteryCycle(await onGetLotteryCycle())
             setTotalTokenSold(await onGetTotalTokenSold())
-            setRaisedBNB(formatBigNumber(balanceOfTokenPreSale, 6))
             setPendingTx(false);
         }
         catch (e)
@@ -86,7 +89,7 @@ const NmdPresale = () => {
         }
     }
     fetchData();
-  }, [onGetNMDTokenprice, onGetBalanceOfBUSD, onGetLotteryCycle, tokenAmountPerBNB, balanceOfBUSD, lotteryCycle, onGetTotalTokenSold, totaltokensold, balanceOfUser, balanceOfTokenPreSale, timeup, setCount])
+  }, [onGetNMDTokenprice, tokenAmountPerBNB, onGetTotalTokenSold, totaltokensold, balanceOfUser, timeup, setCount])
 
   const buyTokenAmountChange = (evt: ChangeEvent<HTMLInputElement>) => {
     if (Number.isNaN(parseInt(evt.target.value)) === true)
@@ -185,6 +188,24 @@ const NmdPresale = () => {
     }
   };
 
+  const handleBNBBalancePressed = async () => { 
+    setPendingBuyTx(true)
+    setBalanceOfBNB(formatBigNumber(balanceOfLottery, 6))
+    setPendingBuyTx(false)
+  };
+
+  const handleBUSDBalancePressed = async () => { 
+    setPendingBuyTx(true)
+    setBalanceOfBUSD(await onGetBalanceOfBUSD())
+    setPendingBuyTx(false)
+  };
+
+  const handleLotteryCyclePressed = async () => { 
+    setPendingBuyTx(true)
+    setLotteryCycle(await onGetLotteryCycle())
+    setPendingBuyTx(false)
+  };
+
   const handleLotteryRemainTimePressed = async () => { 
     setPendingBuyTx(true)
     setLotteryRemainTime(await onGetLotteryRemainTime(parseInt(lotteryID)))
@@ -217,7 +238,7 @@ const NmdPresale = () => {
   
   const handleTreasuryPressed = async () => { 
     setPendingBuyTx(true)
-    setWinner(await onGetWiner(parseInt(lotteryID)))
+    setTreasury(await onGetTreasury())
     setPendingBuyTx(false)
   };
   
@@ -240,9 +261,7 @@ const NmdPresale = () => {
           <Heading scale="lg" color="blue" mb="24px" textAlign="center">
             Lottery Contract Test
             <br/>
-            BNB Balance: {balanceOfBNB} BNB,
-            BUSD Balance: {balanceOfBUSD} BUSD,
-            LotteryCycle: {lotteryCycle} Second
+            Contract Address of BSC Testnet is {lotteryContract.address}
           </Heading>
           <Heading>
             <Heading scale="lg" color="blue" mb="24px" textAlign="center">
@@ -255,8 +274,17 @@ const NmdPresale = () => {
             placeholder="Input LotteryID"
             value={lotteryID}
             onChange={inParamLotteryIDChange}
-            style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+            style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
             />
+            <Button disabled={pendingBuyTx} id="BNBBalance" onClick={handleBNBBalancePressed} >
+            BNB Balance
+            </Button>
+            <Button disabled={pendingBuyTx} id="BUSDBalance" onClick={handleBUSDBalancePressed} >
+            BUSD Balance
+            </Button>
+            <Button disabled={pendingBuyTx} id="LotteryCycle" onClick={handleLotteryCyclePressed} >
+            LotteryCycle
+            </Button>
             <Button disabled={pendingBuyTx} id="LotteryRemainTime" onClick={handleLotteryRemainTimePressed} >
             LotteryRemainTime
             </Button>
@@ -273,8 +301,14 @@ const NmdPresale = () => {
             Winer
             </Button>
             <Button disabled={pendingBuyTx} id="Treasury" onClick={handleTreasuryPressed} >
-            Winer
+            Treasury
             </Button>
+            <br/>
+            BNB Balance: {balanceOfBNB} BNB
+            <br/>
+            BUSD Balance: {balanceOfBUSD} BUSD
+            <br/>
+            LotteryCycle: {lotteryCycle} Second
             <br/>
             LotteryRemainTime: {lotteryRemainTime}
             <br/>
@@ -289,10 +323,13 @@ const NmdPresale = () => {
             MemberInfo: {}
             <br/>
             LottoInfo: {}
+            <br/>
+            Treasury: {treasury}
           </Heading>
 
           <Heading>
             <Heading scale="lg" color="blue" mb="24px" textAlign="center">
+              <br/>
               SetFunctions and Transactions
             </Heading>
             <br/>
@@ -372,4 +409,4 @@ const NmdPresale = () => {
   );
 };
 
-export default NmdPresale;
+export default Lottery;

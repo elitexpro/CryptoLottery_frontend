@@ -269,3 +269,23 @@ export const useGetWiner = () => {
 
   return { onGetWiner: handleGetWiner }
 }
+
+export const useGetTreasury = () => {
+  const lotteryContract = useLotteryContract()
+
+  const handleGetTreasury = useCallback(
+    async () => {
+      try {
+        const treasury = await lotteryContract.TREASURY()
+        return treasury.toString()
+      } catch(e)
+      {
+        console.error('Failed to get Treasury', e)
+        return "";
+      }
+    },
+    [lotteryContract]
+  )
+
+  return { onGetTreasury: handleGetTreasury }
+}

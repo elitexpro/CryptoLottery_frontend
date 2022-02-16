@@ -33,15 +33,15 @@ export const getCustomMeta = (path: string, t: ContextApi['t']): PageMeta => {
   switch (basePath) {
     case '/':
       return {
-        title: `Presale ICO Launch`,
+        title: `Lottery`,
       }
     case '/swap':
       return {
-        title: `${t('Exchange')} | ${t('Namo Mudra')}`,
+        title: `${t('Exchange')} | ${t('Lottery')}`,
       }
     case '/add':
       return {
-        title: `${t('Add Liquidity')} | ${t('Namo Mudra')}`,
+        title: `${t('Add Liquidity')} | ${t('Lottery')}`,
       }
     case '/remove':
       return {

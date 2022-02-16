@@ -8,7 +8,7 @@ import SuspenseWithChunkError from './components/SuspenseWithChunkError'
 import PageLoader from './components/Loader/PageLoader'
 import history from './routerHistory'
 
-const NmdPresale = lazy(() => import('./views/Presale'))
+const Lottery = lazy(() => import('./views/Lottery'))
 
 // This config is required for number formatting
 BigNumber.config({
@@ -24,7 +24,7 @@ const App: React.FC = () => {
       <GlobalStyle />
       <Menu>
         <SuspenseWithChunkError fallback={<PageLoader />}>
-          <NmdPresale />
+          <Lottery />
         </SuspenseWithChunkError>
       </Menu>
     </Router>
