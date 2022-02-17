@@ -73,6 +73,7 @@ const Lottery = () => {
   const [lotteryIDofBuyTicket, setLotteryIDofBuyTicketParam] = useState("");
   const [lotteryIDOfWhoIsWinner, setLotteryIDOfWhoIsWinner] = useState("")
   const [lotteryIDOfWinnerGetPrize, setLotteryIDOfWinnerGetPrize] = useState("")
+  const [lotteryIDOfSetLotteryStatus, setLotteryIDOfSetLotteryStatus] = useState("")
 
   const { onGetNMDTokenprice } = useGetNMDTokenprice()
   const { onGetTotalTokenSold } = useGetTotalTokenSold()
@@ -178,7 +179,11 @@ const Lottery = () => {
   const inParamWinnerGetPrizeChange = (evt: ChangeEvent<HTMLInputElement>) => {
     setLotteryIDOfWinnerGetPrize(evt.target.value);
   }
-  
+
+  const inParamSetLotteryStatusChange = (evt: ChangeEvent<HTMLInputElement>) => {
+    setLotteryIDOfSetLotteryStatus(evt.target.value);
+  }
+
   // get functions
   const handleBNBBalancePressed = async () => { 
     setPendingTx(true)
@@ -582,6 +587,48 @@ const Lottery = () => {
         return false
     }
   };
+  
+  const handleSetLotteryStatusPressed = async () => {
+    if (!account)
+    {
+      setStatus(`please connect wallet!`)
+      return false;
+    }
+    const _lotteryIDOfSetLotteryStatus = parseInt(lotteryIDOfSetLotteryStatus);
+    if (_lotteryIDOfSetLotteryStatus < 0 || Number.isNaN(_lotteryIDOfSetLotteryStatus))
+    {
+      setStatus(`Input Error, please retry!`)
+      return false;
+    }
+    setPendingTx(true)
+    try{
+        const tx = await callWithGasPrice(lotteryContract, 'setLotteryStatus', [_lotteryIDOfSetLotteryStatus])
+        const receipt = await tx.wait()
+
+        if (receipt.transactionHash)
+        {
+            console.log(`1=========================`)
+            console.log(receipt)
+            console.log(`2=========================`)
+            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
+        }
+        else
+        {
+            setStatus(`😥 transaction fail!`)
+        }
+        setPendingTx(false)
+        return true
+    }
+    catch (e)
+    {
+        setPendingTx(false)
+        console.log(`1=========================`)
+        console.log(e)
+        console.log(`2=========================`)
+        setStatus(`😥 Something went wrong: ${e}`)
+        return false
+    }
+  };
 
   const renderStatusString = () => {
     return (
@@ -619,7 +666,7 @@ const Lottery = () => {
             {/* BUSD Balance */}
             <Row>
               <Button disabled={pendingTx} id="BUSDBalance" scale="sm" onClick={handleBUSDBalancePressed} >
-              NMD Balance
+              BUSD Balance
               </Button>
               {balanceOfBUSD} BUSD
             </Row>
@@ -788,7 +835,21 @@ const Lottery = () => {
               style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '250px', textAlign: 'right'}}
               />
               <Button disabled={pendingTx} id="SetLotteryCycle" scale="sm" onClick={handleSetLotteryCyclePressed} >
-                SetLotteryCycle
+                Set LotteryCycle
+              </Button>
+            </Row>
+            {/* Set LotteryStatus */}
+            <Row>
+              <Input
+              id="LotteryIDOfSetLotteryStatus"
+              placeholder="Input lottery ID"
+              value={lotteryIDOfSetLotteryStatus}
+              scale="sm"
+              onChange={inParamSetLotteryStatusChange}
+              style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="SetLotteryStatus" scale="sm" onClick={handleSetLotteryStatusPressed} >
+                Set LotteryStatus
               </Button>
             </Row>
             {/* Create NewLottery */}
@@ -862,35 +923,6 @@ const Lottery = () => {
               </Button>
             </Row>
           </Heading>
-          
-
-          {/* <Heading scale="xl" color="secondary" mb="10px">
-          Token Sold: {totaltokensold} NMD
-            <br/>
-            Token Price: { tokenAmountPerBNB }  BNB
-          NMD amount
-          </Heading>
-
-          <Input
-            id="buyTokenAmount"
-            placeholder=""
-            value={tokenAmount}
-            onChange={buyTokenAmountChange}
-            style={{ position: 'relative', marginLeft: (window.innerWidth - 120)/2 , zIndex: 16, paddingRight: '10px', maxWidth: '110px', textAlign: 'right'}}
-          />
-
-          <Heading scale="xl" color="secondary" mb="10px">
-          BNB Amount :
-            { bnbAmount } BNB
-          </Heading>
-
-          <Heading color='red' mb="16px">
-          {BNBStatus}
-          </Heading>
-
-          <Button disabled={pendingTx} id="buyButton" onClick={handleBuyPressed} >
-            BUY TICKET
-          </Button> */}
 
           <Heading id = "status" color='red' mb="16px">
             {status !== "renderStatusString" ? status : renderStatusString()}
