@@ -767,14 +767,14 @@ const Lottery = () => {
               style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
               />
               <Button disabled={pendingTx} id="Winer" scale="sm" onClick={handleWinnerPressed} >
-              Winer
+              Winner
               </Button>
               {winner}
             </Row>
             {/* MemberInfo */}
             <Row>
               {/* <Text>Input</Text> */}
-              <Input
+              {/* <Input
               id="LotteryID"
               placeholder="Input LotteryID"
               scale="sm"
@@ -785,12 +785,12 @@ const Lottery = () => {
               <Button disabled={pendingTx} id="MemberInfo" scale="sm" onClick={handleMemberInfoPressed} >
               MemberInfo
               </Button>
-              {memberInfo}
+              {memberInfo} */}
             </Row>
             {/* LottoInfo */}
             <Row>
               {/* <Text>Input</Text> */}
-              <Input
+              {/* <Input
               id="LotteryID"
               placeholder="Input LotteryID"
               scale="sm"
@@ -801,7 +801,7 @@ const Lottery = () => {
               <Button disabled={pendingTx} id="LottoInfo" scale="sm" onClick={handleLottoInfoPressed} >
               LottoInfo
               </Button>
-              {lottoInfo}
+              {lottoInfo} */}
             </Row>
           </Heading>
 
