@@ -1,18 +1,26 @@
 import React, { ChangeEvent, useEffect, useState } from "react";
 import { Heading, Button, Input, Text } from '@pancakeswap/uikit'
+import Column, { AutoColumn } from 'components/Layout/Column'
+import Row from 'components/Layout/Row'
 import { formatBigNumber } from 'utils/formatBalance'
 import { useWeb3React } from '@web3-react/core'
 import { parseUnits, formatEther } from 'ethers/lib/utils'
 import { useCallWithGasPrice } from 'hooks/useCallWithGasPrice'
-import { useLotteryContract } from 'hooks/useContract'
+import { useLotteryContract, useNMDTokenContract } from 'hooks/useContract'
 import { getLotteryAddress } from 'utils/addressHelpers'
+import { ethers, utils } from 'ethers'
 import { isAddress } from 'utils'
 import { useGetBnbBalance, useGetTotalTokenSold, useGetNMDTokenprice, useGetBalanceOfBUSD, useGetLotteryCycle, useGetLotteryRemainTime, 
   useGetRestAmountOfTicket,
   useGetLotteryStatus,
-  useGetLotteryLevel,
+  useGetLotteryLevel, 
   useGetWiner,
-  useGetTreasury
+  useGetTreasury,
+  useGetMemberInfo,
+  useGetLottoInfo,
+  useGetBUSD,
+  useGetPricePerTicket,
+  // useSetTreasury
  } 
   from './LotteryModal';
 
@@ -22,9 +30,11 @@ const Lottery = () => {
   const floorGasPrice = 0.001
 
   const lotteryContract = useLotteryContract()
-  const { account } = useWeb3React()
+  const nmdTokenContract = useNMDTokenContract()
+  const { account, library } = useWeb3React()
   const balanceOfLottery = useGetBnbBalance(getLotteryAddress())
   const balanceOfUser = useGetBnbBalance(account);
+  const [pendingTx, setPendingTx] = useState(false)
 
   const { callWithGasPrice } = useCallWithGasPrice()
   
@@ -36,7 +46,12 @@ const Lottery = () => {
   const { onGetLotteryLevel } = useGetLotteryLevel()
   const { onGetWiner } = useGetWiner()  
   const { onGetTreasury } = useGetTreasury()  
+  const { onGetBUSD } = useGetBUSD()
+  const { onGetMemberInfo } = useGetMemberInfo()  
+  const { onGetLottoInfo } = useGetLottoInfo()  
+  const { onGetPricePerTicket } = useGetPricePerTicket()
 
+  // const { onSetTreasury } = useSetTreasury()
   
   const [balanceOfBNB, setBalanceOfBNB] = useState("0")
   const [balanceOfBUSD, setBalanceOfBUSD] = useState(0)
@@ -49,9 +64,15 @@ const Lottery = () => {
   const [lotteryLevel, setLotteryLevel] = useState("");
   const [winner, setWinner] = useState("");
   const [treasury, setTreasury] = useState("");
+  const [busd, setBUSD] = useState("");
   const [lottoInfo, setLottoInfo] = useState();
-
-  
+  const [memberInfo, setMemberInfo] = useState();
+  const [newLotteryCycle, setNewLotteryCycle] = useState("");
+  const [createNewLottoParam, setCreatNewLotto] = useState("");
+  const [ticketAmountOfBuyTicket, setBuyTicketParam] = useState("");
+  const [lotteryIDofBuyTicket, setLotteryIDofBuyTicketParam] = useState("");
+  const [lotteryIDOfWhoIsWinner, setLotteryIDOfWhoIsWinner] = useState("")
+  const [lotteryIDOfWinnerGetPrize, setLotteryIDOfWinnerGetPrize] = useState("")
 
   const { onGetNMDTokenprice } = useGetNMDTokenprice()
   const { onGetTotalTokenSold } = useGetTotalTokenSold()
@@ -62,8 +83,6 @@ const Lottery = () => {
   const [bnbAmount, setBNBAmount] = useState(0.0);
   const [tokenAmount, setTokenAmount] = useState(0);
   const [BNBStatus, setBNBStatus] = useState("");
-  const [pendingTx, setPendingTx] = useState(false)
-  const [pendingBuyTx, setPendingBuyTx] = useState(false)
   const [timeup, setTimeup] = useState(false)
   const [count, setCount] = useState(false)
   const [status, setStatus] = useState("")
@@ -102,21 +121,13 @@ const Lottery = () => {
     }
   };
 
-  const inParamLotteryIDChange = (evt: ChangeEvent<HTMLInputElement>) => {
-    setLotteryID(evt.target.value)
-  };
-
-  const inParamNewTreasuryChange = (evt: ChangeEvent<HTMLInputElement>) => {
-    setNewTreasury(evt.target.value)
-  };
-
   useEffect(() => {
     setBNBAmount(tokenAmount / tokenAmountPerBNB);
     if ((tokenAmount / tokenAmountPerBNB) < floorTokenAmount) setBNBStatus(`BNB Amount should be over ${floorTokenAmount}`);
     else setBNBStatus("");
   }, [tokenAmount, tokenAmountPerBNB])
 
-  const handleBuyPressed = async () => { 
+  const handleBuyPressed = () => { 
 
     if ((tokenAmount / tokenAmountPerBNB) < floorTokenAmount)
     {
@@ -130,118 +141,448 @@ const Lottery = () => {
         return false
     }
     
-    setPendingBuyTx(true)
-    try{
-        const tx = await callWithGasPrice(lotteryContract, 'buyTokens', [], { 
-            value: parseUnits(bnbAmount.toString()) })
-        const receipt = await tx.wait()
-
-        if (receipt.transactionHash)
-        {
-            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
-        }
-        else
-        {
-            setStatus(`😥 transaction fail!`)
-        }
-        setPendingBuyTx(false)
-        return true
-    }
-    catch (e)
-    {
-        setPendingBuyTx(false)
-        setStatus(`😥 Something went wrong: ${e}`)
-        return false
-    }
+    setPendingTx(true)
+    setPendingTx(false)
+    return false
   };
 
-  const handleSetTREASURYPressed = async () => { 
-
-    if (isAddress(newTreasury) === false)
-    {
-        setStatus(`Address fail, please retry`)
-        return false
-    }
-    const realNewTreasury = isAddress(newTreasury)
-    
-    setPendingBuyTx(true)
-    try{
-        const tx = await callWithGasPrice(lotteryContract, 'setTREASURY', [realNewTreasury])
-        const receipt = await tx.wait()
-
-        if (receipt.transactionHash)
-        {
-            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
-        }
-        else
-        {
-            setStatus(`😥 transaction fail!`)
-        }
-        setPendingBuyTx(false)
-        return true
-    }
-    catch (e)
-    {
-        setPendingBuyTx(false)
-        setStatus(`😥 Something went wrong: ${e}`)
-        return false
-    }
+  // btn click handlers
+  const inParamLotteryIDChange = (evt: ChangeEvent<HTMLInputElement>) => {
+    setLotteryID(evt.target.value)
   };
 
+  const inParamNewTreasuryChange = (evt: ChangeEvent<HTMLInputElement>) => {
+    setNewTreasury(evt.target.value)
+  };
+
+  const inParamNewLotteryCycleChange = (evt: ChangeEvent<HTMLInputElement>) => {
+    setNewLotteryCycle(evt.target.value)
+  };
+  
+  const inParamCreatNewLottoChange = (evt: ChangeEvent<HTMLInputElement>) => {
+    setCreatNewLotto(evt.target.value)
+  };
+
+  const inParamBuyTicketChange = (evt: ChangeEvent<HTMLInputElement>) => {
+    setBuyTicketParam(evt.target.value)
+  };
+  
+  const inParam2BuyTicketChange = (evt: ChangeEvent<HTMLInputElement>) => {
+    setLotteryIDofBuyTicketParam(evt.target.value)
+  };
+
+  const inParamWhoIsWinnerChange = (evt: ChangeEvent<HTMLInputElement>) => {
+    setLotteryIDOfWhoIsWinner(evt.target.value);
+  }
+  
+  const inParamWinnerGetPrizeChange = (evt: ChangeEvent<HTMLInputElement>) => {
+    setLotteryIDOfWinnerGetPrize(evt.target.value);
+  }
+  
+  // get functions
   const handleBNBBalancePressed = async () => { 
-    setPendingBuyTx(true)
+    setPendingTx(true)
     setBalanceOfBNB(formatBigNumber(balanceOfLottery, 6))
-    setPendingBuyTx(false)
+    setPendingTx(false)
   };
 
   const handleBUSDBalancePressed = async () => { 
-    setPendingBuyTx(true)
+    setPendingTx(true)
     setBalanceOfBUSD(await onGetBalanceOfBUSD())
-    setPendingBuyTx(false)
+    setPendingTx(false)
   };
 
   const handleLotteryCyclePressed = async () => { 
-    setPendingBuyTx(true)
+    setPendingTx(true)
     setLotteryCycle(await onGetLotteryCycle())
-    setPendingBuyTx(false)
+    setPendingTx(false)
   };
 
   const handleLotteryRemainTimePressed = async () => { 
-    setPendingBuyTx(true)
+    setPendingTx(true)
     setLotteryRemainTime(await onGetLotteryRemainTime(parseInt(lotteryID)))
-    setPendingBuyTx(false)
+    setPendingTx(false)
   };
 
   const handleRestAmountOfTicketPressed = async () => { 
-    setPendingBuyTx(true)
+    setPendingTx(true)
     setRestAmountOfTicket(await onGetRestAmountOfTicket(parseInt(lotteryID)))
-    setPendingBuyTx(false)
+    setPendingTx(false)
   };
   
   const handleLotteryStatusPressed = async () => { 
-    setPendingBuyTx(true)
+    setPendingTx(true)
     setLotteryStatus(await onGetLotteryStatus(parseInt(lotteryID)))
-    setPendingBuyTx(false)
+    setPendingTx(false)
   };
 
   const handleLotteryLevelPressed = async () => { 
-    setPendingBuyTx(true)
+    setPendingTx(true)
     setLotteryLevel(await onGetLotteryLevel(parseInt(lotteryID)))
-    setPendingBuyTx(false)
+    setPendingTx(false)
   };
 
   const handleWinnerPressed = async () => { 
-    setPendingBuyTx(true)
+    setPendingTx(true)
     setWinner(await onGetWiner(parseInt(lotteryID)))
-    setPendingBuyTx(false)
+    setPendingTx(false)
   };
   
   const handleTreasuryPressed = async () => { 
-    setPendingBuyTx(true)
+    setPendingTx(true)
     setTreasury(await onGetTreasury())
-    setPendingBuyTx(false)
+    setPendingTx(false)
+  };
+
+  const handleBUSDPressed = async () => { 
+    setPendingTx(true)
+    setBUSD(await onGetBUSD())
+    setPendingTx(false)
+  };
+
+  const handleMemberInfoPressed = async () => { 
+    setPendingTx(true)
+    setMemberInfo(await onGetMemberInfo())
+    setPendingTx(false)
+  };
+
+  const handleLottoInfoPressed = async () => { 
+    setPendingTx(true)
+    setLottoInfo(await onGetLottoInfo())
+    setPendingTx(false)
+  };
+
+  // set functions and transactions
+  const handleSetTREASURYPressed = async () => { 
+    if (!account)
+    {
+      setStatus(`please connect wallet!`)
+      return false;
+    }
+    if (isAddress(newTreasury) === false)
+    {
+        setStatus(`Address fail, please retry!`)
+        return false
+    }
+    const _newTreasury = isAddress(newTreasury).toString()
+    
+    setPendingTx(true)
+    try{
+        const tx = await callWithGasPrice(lotteryContract, 'setTREASURY', [_newTreasury])
+        const receipt = await tx.wait()
+
+        if (receipt.transactionHash)
+        {
+          // setStatus(`${tx}`)
+          setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
+        }
+        else
+        {
+            setStatus(`😥 transaction fail!`)
+        }
+        setPendingTx(false)
+        return true
+    }
+    catch (e)
+    {
+        setPendingTx(false)
+        setStatus(`😥 Something went wrong: ${e}`)
+        return false
+    }
+    // setPendingTx(true)
+    // const retVal = await onSetTreasury(_newTreasury)
+    // setStatus(`RetVal: ${retVal}`)
+    // setPendingTx(false)
+    // return false
+  };
+
+  const handleSetLotteryCyclePressed = async () => {
+    if (!account)
+    {
+      setStatus(`please connect wallet!`)
+      return false;
+    }
+    const _newLotteryCycle = parseInt(newLotteryCycle);
+    if (_newLotteryCycle <= 0 || Number.isNaN(_newLotteryCycle))
+    {
+      setStatus(`Input Error, please retry!`)
+      return false;
+    }
+    setPendingTx(true)
+    try{
+        const tx = await callWithGasPrice(lotteryContract, 'setLotteryCycle', [_newLotteryCycle])
+        const receipt = await tx.wait()
+
+        if (receipt.transactionHash)
+        {
+            console.log(`1=========================`)
+            console.log(receipt)
+            console.log(`2=========================`)
+            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
+        }
+        else
+        {
+            setStatus(`😥 transaction fail!`)
+        }
+        setPendingTx(false)
+        return true
+    }
+    catch (e)
+    {
+        setPendingTx(false)
+        setStatus(`😥 Something went wrong: ${e}`)
+        return false
+    }
   };
   
+  const handleCreatNewLottoPressed = async () => {
+    if (!account)
+    {
+      setStatus(`please connect wallet!`)
+      return false;
+    }
+    const _createNewLottoParam = parseInt(createNewLottoParam);
+    if (_createNewLottoParam < 0 || Number.isNaN(_createNewLottoParam))
+    {
+      setStatus(`Input Error, please retry!`)
+      return false;
+    }
+    setPendingTx(true)
+    try{
+        const tx = await callWithGasPrice(lotteryContract, 'createNewLotto', [_createNewLottoParam])
+        const receipt = await tx.wait()
+
+        if (receipt.transactionHash)
+        {
+            console.log(`1=========================`)
+            console.log(receipt)
+            console.log(`2=========================`)
+            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
+        }
+        else
+        {
+            setStatus(`😥 transaction fail!`)
+        }
+        setPendingTx(false)
+        return true
+    }
+    catch (e)
+    {
+        setPendingTx(false)
+        console.log(`1=========================`)
+        console.log(e)
+        console.log(`2=========================`)
+        setStatus(`😥 Something went wrong: ${e}`)
+        return false
+    }
+  };
+  
+  const handleBuyTicketPressed = async () => {
+    if (!account)
+    {
+      setStatus(`please connect wallet!`)
+      return false;
+    }
+    const _ticketAmountOfBuyTicket = parseInt(ticketAmountOfBuyTicket);
+    if (_ticketAmountOfBuyTicket < 1 || Number.isNaN(_ticketAmountOfBuyTicket))
+    {
+      setStatus(`Input Error, please retry!`)
+      return false;
+    }
+    const _lotteryIDofBuyTicket = parseInt(lotteryIDofBuyTicket);
+    if (Number.isNaN(_lotteryIDofBuyTicket))
+    {
+      setStatus(`Input Error, please retry!`)
+      return false;
+    }
+    
+    setPendingTx(true)
+    const pricePerTicket = await onGetPricePerTicket(_lotteryIDofBuyTicket)
+    if (Number.isNaN(parseInt(pricePerTicket)) || parseInt(pricePerTicket) <= 0)
+    {
+      setStatus(`Fail to get ticket price!`)
+      setPendingTx(false)
+      return false;
+    }
+
+    try{
+        const tx = await callWithGasPrice(nmdTokenContract, 'approve', [lotteryContract.address, utils.parseEther(Number(_ticketAmountOfBuyTicket * pricePerTicket).toString())])
+        const receipt = await tx.wait()
+
+        if (receipt.transactionHash)
+        {
+            console.log(`1=========================success`)
+            console.log(tx)
+            console.log(`2=========================success`)
+            console.log(receipt)
+            console.log(`3=========================success`)
+            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
+        }
+        else
+        {
+            setStatus(`😥 transaction fail!`)
+        }
+        setPendingTx(false)
+    }
+    catch (e)
+    {
+        setPendingTx(false)
+        console.log(`1=========================fail`)
+        console.log(e)
+        console.log(`2=========================fail`)
+        setStatus(`😥 Something went wrong: ${e}`)
+        return false
+    }
+    setPendingTx(true)
+    try{
+        const tx = await callWithGasPrice(lotteryContract, 'buyTicket', [_lotteryIDofBuyTicket, _ticketAmountOfBuyTicket])
+        const receipt = await tx.wait()
+
+        if (receipt.transactionHash)
+        {
+            console.log(`1=========================success`)
+            console.log(receipt)
+            console.log(`2=========================success`)
+            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
+        }
+        else
+        {
+            setStatus(`😥 transaction fail!`)
+        }
+        setPendingTx(false)
+        return true
+    }
+    catch (e)
+    {
+        setPendingTx(false)
+        console.log(`1=========================fail`)
+        console.log(e)
+        console.log(`2=========================fail`)
+        setStatus(`😥 Something went wrong: ${e}`)
+        return false
+    }
+  };
+  
+  const handleWhoIsWinnerPressed = async () => {
+    if (!account)
+    {
+      setStatus(`please connect wallet!`)
+      return false;
+    }
+    const _lotteryIDOfWhoIsWinner = parseInt(lotteryIDOfWhoIsWinner);
+    if (_lotteryIDOfWhoIsWinner < 0 || Number.isNaN(_lotteryIDOfWhoIsWinner))
+    {
+      setStatus(`Input Error, please retry!`)
+      return false;
+    }
+    setPendingTx(true)
+    try{
+        const tx = await callWithGasPrice(lotteryContract, 'whoIsWinner', [_lotteryIDOfWhoIsWinner])
+        const receipt = await tx.wait()
+
+        if (receipt.transactionHash)
+        {
+            console.log(`1=========================`)
+            console.log(receipt)
+            console.log(`2=========================`)
+            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
+        }
+        else
+        {
+            setStatus(`😥 transaction fail!`)
+        }
+        setPendingTx(false)
+        return true
+    }
+    catch (e)
+    {
+        setPendingTx(false)
+        console.log(`1=========================`)
+        console.log(e)
+        console.log(`2=========================`)
+        setStatus(`😥 Something went wrong: ${e}`)
+        return false
+    }
+  };
+
+  const handleWinnerGetPrizePressed = async () => {
+    if (!account)
+    {
+      setStatus(`please connect wallet!`)
+      return false;
+    }
+    const _lotteryIDOfWinnerGetPrize = parseInt(lotteryIDOfWinnerGetPrize);
+    if (_lotteryIDOfWinnerGetPrize < 0 || Number.isNaN(_lotteryIDOfWinnerGetPrize))
+    {
+      setStatus(`Input Error, please retry!`)
+      return false;
+    }
+    setPendingTx(true)
+    try{
+        const tx = await callWithGasPrice(lotteryContract, 'winnerGetPrize', [_lotteryIDOfWinnerGetPrize])
+        const receipt = await tx.wait()
+
+        if (receipt.transactionHash)
+        {
+            console.log(`1=========================`)
+            console.log(receipt)
+            console.log(`2=========================`)
+            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
+        }
+        else
+        {
+            setStatus(`😥 transaction fail!`)
+        }
+        setPendingTx(false)
+        return true
+    }
+    catch (e)
+    {
+        setPendingTx(false)
+        console.log(`1=========================`)
+        console.log(e)
+        console.log(`2=========================`)
+        setStatus(`😥 Something went wrong: ${e}`)
+        return false
+    }
+  };
+
+  const handleEndLotteryProjectPressed = async () => {
+    if (!account)
+    {
+      setStatus(`please connect wallet!`)
+      return false;
+    }
+    setPendingTx(true)
+    try{
+        const tx = await callWithGasPrice(lotteryContract, 'endLotteryProject', [])
+        const receipt = await tx.wait()
+
+        if (receipt.transactionHash)
+        {
+            console.log(`1=========================`)
+            console.log(receipt)
+            console.log(`2=========================`)
+            setStatus(`✅ Check out your transaction on bscscan: https://bscscan.com/tx/${receipt.transactionHash}`)
+        }
+        else
+        {
+            setStatus(`😥 transaction fail!`)
+        }
+        setPendingTx(false)
+        return true
+    }
+    catch (e)
+    {
+        setPendingTx(false)
+        console.log(`1=========================`)
+        console.log(e)
+        console.log(`2=========================`)
+        setStatus(`😥 Something went wrong: ${e}`)
+        return false
+    }
+  };
+
   const renderStatusString = () => {
     return (
       <p>
@@ -261,70 +602,160 @@ const Lottery = () => {
           <Heading scale="lg" color="blue" mb="24px" textAlign="center">
             Lottery Contract Test
             <br/>
-            Contract Address of BSC Testnet is {lotteryContract.address}
+            Contract Address on BSC Testnet is {lotteryContract.address}
           </Heading>
           <Heading>
             <Heading scale="lg" color="blue" mb="24px" textAlign="center">
               GetFunctions
             </Heading>
-            <br/>
-            LotteryID
-            <Input
-            id="LotteryID"
-            placeholder="Input LotteryID"
-            value={lotteryID}
-            onChange={inParamLotteryIDChange}
-            style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
-            />
-            <Button disabled={pendingBuyTx} id="BNBBalance" onClick={handleBNBBalancePressed} >
-            BNB Balance
-            </Button>
-            <Button disabled={pendingBuyTx} id="BUSDBalance" onClick={handleBUSDBalancePressed} >
-            BUSD Balance
-            </Button>
-            <Button disabled={pendingBuyTx} id="LotteryCycle" onClick={handleLotteryCyclePressed} >
-            LotteryCycle
-            </Button>
-            <Button disabled={pendingBuyTx} id="LotteryRemainTime" onClick={handleLotteryRemainTimePressed} >
-            LotteryRemainTime
-            </Button>
-            <Button disabled={pendingBuyTx} id="RestAmountOfTicket" onClick={handleRestAmountOfTicketPressed} >
-            RestAmountOfTicket
-            </Button>
-            <Button disabled={pendingBuyTx} id="LotteryStatus" onClick={handleLotteryStatusPressed} >
-            LotteryStatus
-            </Button>
-            <Button disabled={pendingBuyTx} id="LotteryLevel" onClick={handleLotteryLevelPressed} >
-            LotteryLevel
-            </Button>
-            <Button disabled={pendingBuyTx} id="Winer" onClick={handleWinnerPressed} >
-            Winer
-            </Button>
-            <Button disabled={pendingBuyTx} id="Treasury" onClick={handleTreasuryPressed} >
-            Treasury
-            </Button>
-            <br/>
-            BNB Balance: {balanceOfBNB} BNB
-            <br/>
-            BUSD Balance: {balanceOfBUSD} BUSD
-            <br/>
-            LotteryCycle: {lotteryCycle} Second
-            <br/>
-            LotteryRemainTime: {lotteryRemainTime}
-            <br/>
-            RestAmountOfTicket: {restAmountOfTicket}
-            <br/>
-            LotteryStatus: {lotteryStatus}
-            <br/>
-            LotteryLevel: {lotteryLevel}
-            <br/>
-            Winner: {winner}
-            <br/>
-            MemberInfo: {}
-            <br/>
-            LottoInfo: {}
-            <br/>
-            Treasury: {treasury}
+
+            {/* BNB Balance */}
+            <Row>
+              <Button disabled={pendingTx} id="BNBBalance" scale="sm" onClick={handleBNBBalancePressed} >
+                BNB Balance
+              </Button>
+              {balanceOfBNB} BNB
+            </Row>
+            {/* BUSD Balance */}
+            <Row>
+              <Button disabled={pendingTx} id="BUSDBalance" scale="sm" onClick={handleBUSDBalancePressed} >
+              NMD Balance
+              </Button>
+              {balanceOfBUSD} BUSD
+            </Row>
+            {/* Lottery Cycle */}
+            <Row>
+              <Button disabled={pendingTx} id="LotteryCycle" scale="sm" onClick={handleLotteryCyclePressed} >
+              LotteryCycle
+              </Button>
+              {lotteryCycle} Second
+            </Row>
+            {/* Treasury */}
+            <Row>
+              <Button disabled={pendingTx} id="Treasury" scale="sm" onClick={handleTreasuryPressed} >
+              Treasury
+              </Button>
+              {treasury}
+            </Row>
+            {/* BUSD Address */}
+            <Row>
+              <Button disabled={pendingTx} id="BUSD Address" scale="sm" onClick={handleBUSDPressed} >
+              BUSD Address
+              </Button>
+              {busd}
+            </Row>
+            {/* LotteryRemainTime */}
+            <Row>
+              {/* <Text>Input</Text> */}
+              <Input
+              id="LotteryID"
+              placeholder="Input LotteryID"
+              scale="sm"
+              value={lotteryID}
+              onChange={inParamLotteryIDChange}
+              style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="LotteryRemainTime" scale="sm" onClick={handleLotteryRemainTimePressed} >
+              LotteryRemainTime
+              </Button>
+              {lotteryRemainTime}
+            </Row>
+            {/* RestAmountOfTicket */}
+            <Row>
+              {/* <Text>Input</Text> */}
+              <Input
+              id="LotteryID"
+              placeholder="Input LotteryID"
+              scale="sm"
+              value={lotteryID}
+              onChange={inParamLotteryIDChange}
+              style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />            
+              <Button disabled={pendingTx} id="RestAmountOfTicket" scale="sm" onClick={handleRestAmountOfTicketPressed} >
+              RestAmountOfTicket
+              </Button>
+              {restAmountOfTicket}
+            </Row>
+            {/* LotteryStatus */}
+            <Row>
+              {/* <Text>Input</Text> */}
+              <Input
+              id="LotteryID"
+              placeholder="Input LotteryID"
+              scale="sm"
+              value={lotteryID}
+              onChange={inParamLotteryIDChange}
+              style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="LotteryStatus" scale="sm" onClick={handleLotteryStatusPressed} >
+              LotteryStatus
+              </Button>
+              {lotteryStatus}
+            </Row>
+            {/* LotteryLevel */}
+            <Row>
+              {/* <Text>Input</Text> */}
+              <Input
+              id="LotteryID"
+              placeholder="Input LotteryID"
+              scale="sm"
+              value={lotteryID}
+              onChange={inParamLotteryIDChange}
+              style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="LotteryLevel" scale="sm" onClick={handleLotteryLevelPressed} >
+              LotteryLevel
+              </Button>
+              {lotteryLevel}
+            </Row>
+            {/* Winer */}
+            <Row>
+              {/* <Text>Input</Text> */}
+              <Input
+              id="LotteryID"
+              placeholder="Input LotteryID"
+              scale="sm"
+              value={lotteryID}
+              onChange={inParamLotteryIDChange}
+              style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="Winer" scale="sm" onClick={handleWinnerPressed} >
+              Winer
+              </Button>
+              {winner}
+            </Row>
+            {/* MemberInfo */}
+            <Row>
+              {/* <Text>Input</Text> */}
+              <Input
+              id="LotteryID"
+              placeholder="Input LotteryID"
+              scale="sm"
+              value={lotteryID}
+              onChange={inParamLotteryIDChange}
+              style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="MemberInfo" scale="sm" onClick={handleMemberInfoPressed} >
+              MemberInfo
+              </Button>
+              {memberInfo}
+            </Row>
+            {/* LottoInfo */}
+            <Row>
+              {/* <Text>Input</Text> */}
+              <Input
+              id="LotteryID"
+              placeholder="Input LotteryID"
+              scale="sm"
+              value={lotteryID}
+              onChange={inParamLotteryIDChange}
+              style={{ position: 'relative', zIndex: 0, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="LottoInfo" scale="sm" onClick={handleLottoInfoPressed} >
+              LottoInfo
+              </Button>
+              {lottoInfo}
+            </Row>
           </Heading>
 
           <Heading>
@@ -332,44 +763,104 @@ const Lottery = () => {
               <br/>
               SetFunctions and Transactions
             </Heading>
-            <br/>
-            New Treasury address
-            <Input
-            id="NewTreasury"
-            placeholder="Input new treasury address"
-            value={newTreasury}
-            onChange={inParamNewTreasuryChange}
-            style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '400px', textAlign: 'right'}}
-            />
-            <Button disabled={pendingBuyTx} id="SetTREASURY" onClick={handleSetTREASURYPressed} >
-            SetTREASURY
-            </Button>
-            <Button disabled={pendingBuyTx} id="RestAmountOfTicket" onClick={handleRestAmountOfTicketPressed} >
-            RestAmountOfTicket
-            </Button>
-            <Button disabled={pendingBuyTx} id="LotteryStatus" onClick={handleLotteryStatusPressed} >
-            LotteryStatus
-            </Button>
-            <Button disabled={pendingBuyTx} id="LotteryLevel" onClick={handleLotteryLevelPressed} >
-            LotteryLevel
-            </Button>
-            <Button disabled={pendingBuyTx} id="Winer" onClick={handleWinnerPressed} >
-            Winer
-            </Button>
-            <br/>
-            LotteryRemainTime: {lotteryRemainTime}
-            <br/>
-            RestAmountOfTicket: {restAmountOfTicket}
-            <br/>
-            LotteryStatus: {lotteryStatus}
-            <br/>
-            LotteryLevel: {lotteryLevel}
-            <br/>
-            Winner: {winner}
-            <br/>
-            MemberInfo: {}
-            <br/>
-            LottoInfo: {}
+            {/* Set Treasury */}
+            <Row>
+              <Input
+              id="NewTreasury"
+              placeholder="Input new treasury address"
+              value={newTreasury}
+              scale="sm"
+              onChange={inParamNewTreasuryChange}
+              style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '420px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="SetTREASURY" scale="sm" onClick={handleSetTREASURYPressed} >
+                SetTREASURY
+              </Button>
+            </Row>
+            {/* Set LotteryCycle */}
+            <Row>
+              <Input
+              id="NewLotterCycle"
+              placeholder="Input new lottery cycle value"
+              value={newLotteryCycle}
+              scale="sm"
+              onChange={inParamNewLotteryCycleChange}
+              style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '250px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="SetLotteryCycle" scale="sm" onClick={handleSetLotteryCyclePressed} >
+                SetLotteryCycle
+              </Button>
+            </Row>
+            {/* Create NewLottery */}
+            <Row>
+              <Input
+              id="CreatNewLotto"
+              placeholder="Input new lottery level range:from 0 to 5"
+              value={createNewLottoParam}
+              scale="sm"
+              onChange={inParamCreatNewLottoChange}
+              style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '350px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="CreatNewLotto" scale="sm" onClick={handleCreatNewLottoPressed} >
+                Create New Lottery
+              </Button>
+            </Row>
+            {/* Buy Ticket */}
+            <Row>
+              <Input
+              id="BuyTicketInputInparam1"
+              placeholder="Input lottery ID"
+              value={lotteryIDofBuyTicket}
+              scale="sm"
+              onChange={inParam2BuyTicketChange}
+              style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Input
+              id="BuyTicketInputInparam2"
+              placeholder="Input ticket amount"
+              value={ticketAmountOfBuyTicket}
+              scale="sm"
+              onChange={inParamBuyTicketChange}
+              style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '180px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="BuyTicket" scale="sm" onClick={handleBuyTicketPressed} >
+                Buy Ticket
+              </Button>
+            </Row>
+            {/* Who is Winner */}
+            <Row>
+              <Input
+              id="WhoIsWinnerInparam"
+              placeholder="Input Lottery ID"
+              value={lotteryIDOfWhoIsWinner}
+              scale="sm"
+              onChange={inParamWhoIsWinnerChange}
+              style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="WhoIsWinner" scale="sm" onClick={handleWhoIsWinnerPressed} >
+              Who Is Winner
+              </Button>
+            </Row>
+            {/* Winner Get Prize */}
+            <Row>
+              <Input
+              id="WinnerGetPrizeInparam"
+              placeholder="Input Lottery ID"
+              value={lotteryIDOfWinnerGetPrize}
+              scale="sm"
+              onChange={inParamWinnerGetPrizeChange}
+              style={{ position: 'relative', zIndex: 10, paddingRight: '8px', maxWidth: '150px', textAlign: 'right'}}
+              />
+              <Button disabled={pendingTx} id="winnerGetPrize" scale="sm" onClick={handleWinnerGetPrizePressed} >
+              Get Prize
+              </Button>
+            </Row>
+            {/* Winner Get Prize */}
+            <Row>
+              <Button disabled={pendingTx} id="endLotteryProject" scale="sm" onClick={handleEndLotteryProjectPressed} >
+              EndLotteryProject
+              </Button>
+            </Row>
           </Heading>
           
 
@@ -397,7 +888,7 @@ const Lottery = () => {
           {BNBStatus}
           </Heading>
 
-          <Button disabled={pendingBuyTx} id="buyButton" onClick={handleBuyPressed} >
+          <Button disabled={pendingTx} id="buyButton" onClick={handleBuyPressed} >
             BUY TICKET
           </Button> */}
 

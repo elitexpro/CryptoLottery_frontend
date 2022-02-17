@@ -107,7 +107,7 @@ export const useGetBalanceOfBUSD = () => {
     async () => {
       try {
         const balanceOfToken = await lotteryContract.getBalanceOfToken()
-        return parseInt(balanceOfToken)
+        return parseFloat(formatEther(balanceOfToken))
       } catch(e)
       {
         console.error('Failed to getBalanceOfToken', e)
@@ -289,3 +289,104 @@ export const useGetTreasury = () => {
 
   return { onGetTreasury: handleGetTreasury }
 }
+
+export const useGetMemberInfo = () => {
+  const lotteryContract = useLotteryContract()
+
+  const handleGetMemberInfo = useCallback(
+    async () => {
+      try {
+        const treasury = await lotteryContract.TREASURY()
+        return treasury.toString()
+      } catch(e)
+      {
+        console.error('Failed to get Treasury', e)
+        return "";
+      }
+    },
+    [lotteryContract]
+  )
+
+  return { onGetMemberInfo: handleGetMemberInfo }
+}
+
+export const useGetLottoInfo = () => {
+  const lotteryContract = useLotteryContract()
+
+  const handleGetLottoInfo = useCallback(
+    async () => {
+      try {
+        const treasury = await lotteryContract.TREASURY()
+        return treasury.toString()
+      } catch(e)
+      {
+        console.error('Failed to get Treasury', e)
+        return "";
+      }
+    },
+    [lotteryContract]
+  )
+
+  return { onGetLottoInfo: handleGetLottoInfo }
+}
+
+export const useGetBUSD = () => {
+  const lotteryContract = useLotteryContract()
+
+  const handleGetBUSD = useCallback(
+    async () => {
+      try {
+        const BUSDAddress = await lotteryContract.busd_()
+        return BUSDAddress.toString()
+      } catch(e)
+      {
+        console.error('Failed to get BUSD address', e)
+        return "";
+      }
+    },
+    [lotteryContract]
+  )
+
+  return { onGetBUSD: handleGetBUSD }
+}
+
+export const useGetPricePerTicket = () => {
+  const lotteryContract = useLotteryContract()
+
+  const handleGetPricePerTicket = useCallback(
+    async (lotteryID: number) => {
+      try {
+        const pricePerTicket = await lotteryContract.getPricePerTicket(lotteryID)
+        return pricePerTicket
+      } catch(e)
+      {
+        console.error('Failed to get BUSD address', e)
+        return 0
+      }
+    },
+    [lotteryContract]
+  )
+
+  return { onGetPricePerTicket: handleGetPricePerTicket }
+}
+
+// export const useSetTreasury = () => {
+//   const lotteryContract = useLotteryContract()
+
+//   const handleSetTreasury = useCallback(
+//     async (newTreasury: string) => {
+//       try {
+//         const retVal = await lotteryContract.setTREASRUY(newTreasury)
+//         await retVal.wait()
+//         return retVal
+//       } catch(e)
+//       {
+//         console.error('Failed to set Treasury wallet', e)
+//         return NaN
+//       }
+//     },
+//     [lotteryContract]
+//   )
+
+//   return { onSetTreasury: handleSetTreasury }
+// }

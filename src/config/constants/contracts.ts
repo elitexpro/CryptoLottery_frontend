@@ -96,7 +96,7 @@ export default {
   },
   Lottery: {
     56: '',
-    97: '0x7d30692970EEaACcE8d5E6E8e083d2c2144f2775',
+    97: '0x5fEccE603077c9203327084880235960851B8B5F',
   },
   NMDToken: {
     56: '0x64b14FC2ADFa92d52D3029dc481F375Bb405835a',
